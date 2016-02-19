@@ -54,4 +54,10 @@ require_once(ROOT_DIR.'/includes/classes/actions-users.php');
 require_once(ROOT_DIR.'/includes/classes/file-upload.php');
 require_once(ROOT_DIR.'/includes/classes/form-validation.php');
 require_once(ROOT_DIR.'/includes/classes/send-email.php');
+
+/** Check for an active session or cookie */
+if (! check_for_session() ) {
+  die();
+}
+
 ?>

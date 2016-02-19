@@ -274,7 +274,7 @@ include('header.php');
 			/** Add the status filter */	
 			if(isset($_POST['status']) && $_POST['status'] != 'all') {
 				$set_and = true;
-				$status_filter = $_POST['status'];
+				$status_filter = mysql_real_escape_string($_POST['status']);
 				$cq .= " AND hidden='$status_filter'";
 				$no_results_error = 'filter';
 			}

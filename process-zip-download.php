@@ -12,7 +12,13 @@ $zip_file = tempnam("tmp", "zip");
 $zip = new ZipArchive();
 $zip->open($zip_file, ZipArchive::OVERWRITE);
 
-$files_to_zip = explode(',',substr($_GET['file'], 0, -1));
+
+// Remove all characters except A-Z, a-z, 0-9, dots, hyphens and spaces
+// Note that the hyphen must go last not to be confused with a range (A-Z)
+// and the dot, being special, is escaped with \
+$cleaned_files = preg_replace('/[^A-Za-z0-9\. _,-]/', '', $_GET['file']);
+
+$files_to_zip = explode(',',substr($cleaned_files, 0, -1));
 
 $added_files = 0;
 

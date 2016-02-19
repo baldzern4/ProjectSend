@@ -156,7 +156,7 @@ include('header.php');
 		if(isset($_POST['do_action'])) {
 			/** Continue only if 1 or more files were selected. */
 			if(!empty($_POST['files'])) {
-				$selected_files = array_unique($_POST['files']);
+				$selected_files = array_unique(mysql_real_escape_string($_POST['files']));
 				$files_to_get = implode(',',$selected_files);
 	
 				/**

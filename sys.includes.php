@@ -36,7 +36,9 @@ require_once(ROOT_DIR.'/includes/userlevel_check.php');
 require_once(ROOT_DIR.'/includes/templates.php');
 
 /** Contains the current session information */
-require_once(ROOT_DIR.'/includes/active.session.php');
+if ( !defined( 'IS_INSTALL' ) ) {
+	require_once(ROOT_DIR.'/includes/active.session.php');
+}
 
 /** Recreate the function if it doesn't exist. By Alan Reiblein */
 require_once(ROOT_DIR.'/includes/timezone_identifiers_list.php');
@@ -54,10 +56,4 @@ require_once(ROOT_DIR.'/includes/classes/actions-users.php');
 require_once(ROOT_DIR.'/includes/classes/file-upload.php');
 require_once(ROOT_DIR.'/includes/classes/form-validation.php');
 require_once(ROOT_DIR.'/includes/classes/send-email.php');
-
-/** Check for an active session or cookie */
-if (! check_for_session() ) {
-  die();
-}
-
 ?>

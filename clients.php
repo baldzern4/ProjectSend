@@ -61,14 +61,17 @@ $(document).ready(function() {
 	if(isset($_POST['clients_actions'])) {
 		/** Continue only if 1 or more clients were selected. */
 		if(!empty($_POST['selected_clients'])) {
-			$selected_clients = mysql_real_escape_string($_POST['selected_clients']);
-			$clients_to_get = mysql_real_escape_string(implode(',',array_unique($selected_clients)));
+			$selected_clients = $_POST['selected_clients'];
+			$clients_to_get = implode( ',', array_map( 'intval', array_unique( $selected_clients ) ) );
 
 			/**
 			 * Make a list of users to avoid individual queries.
 			 */
-			$sql_user = $database->query("SELECT id, name FROM tbl_users WHERE id IN ($clients_to_get)");
-			while($data_user = mysql_fetch_array($sql_user)) {
+			$sql_user = $dbh->prepare( "SELECT id, name FROM " . TABLE_USERS . " WHERE FIND_IN_SET(id, :clients)" );
+			$sql_user->bindParam(':clients', $clients_to_get);
+			$sql_user->execute();
+			$sql_user->setFetchMode(PDO::FETCH_ASSOC);
+			while ( $data_user = $sql_user->fetch() ) {
 				$all_users[$data_user['id']] = $data_user['name'];
 			}
 
@@ -131,32 +134,40 @@ $(document).ready(function() {
 	}
 
 	/** Query the clients */
-	$database->MySQLDB();
-	$cq = "SELECT * FROM tbl_users WHERE level='0'";
+	$cq = "SELECT * FROM " . TABLE_USERS . " WHERE level='0'";
 
 	/** Add the search terms */	
-	if(isset($_POST['search']) && !empty($_POST['search'])) {
-		$search_terms = mysql_real_escape_string($_POST['search']);
-		$cq .= " AND (name LIKE '%$search_terms%' OR user LIKE '%$search_terms%' OR address LIKE '%$search_terms%' OR phone LIKE '%$search_terms%' OR email LIKE '%$search_terms%' OR contact LIKE '%$search_terms%')";
+	if ( isset( $_POST['search'] ) && !empty( $_POST['search'] ) ) {
+		$cq .= " AND (name LIKE :name OR user LIKE :user OR address LIKE :address OR phone LIKE :phone OR email LIKE :email OR contact LIKE :contact)";
 		$no_results_error = 'search';
+
+		$search_terms		= '%'.$_POST['search'].'%';
+		$params[':name']	= $search_terms;
+		$params[':user']	= $search_terms;
+		$params[':address']	= $search_terms;
+		$params[':phone']	= $search_terms;
+		$params[':email']	= $search_terms;
+		$params[':contact']	= $search_terms;
 	}
 
 	/** Add the status filter */	
 	if(isset($_POST['status']) && $_POST['status'] != 'all') {
-		$status_filter = mysql_real_escape_string($_POST['status']);
-		$cq .= " AND active='$status_filter'";
+		$cq .= " AND active = :active";
 		$no_results_error = 'filter';
+
+		$params[':active']	= (int)$_POST['status'];
 	}
 	
 	$cq .= " ORDER BY name ASC";
 
-	$sql = $database->query($cq);
-	$count = mysql_num_rows($sql);
+	$sql = $dbh->prepare( $cq );
+	$sql->execute( $params );
+	$count = $sql->rowCount();
 ?>
 		<div class="form_actions_left">
 			<div class="form_actions_limit_results">
 				<form action="clients.php" name="clients_search" method="post" class="form-inline">
-					<input type="text" name="search" id="search" value="<?php if(isset($_POST['search']) && !empty($_POST['search'])) { echo $_POST['search']; } ?>" class="txtfield form_actions_search_box" />
+					<input type="text" name="search" id="search" value="<?php if(isset($_POST['search']) && !empty($_POST['search'])) { echo html_output($_POST['search']); } ?>" class="txtfield form_actions_search_box" />
 					<button type="submit" id="btn_proceed_search" class="btn btn-small"><?php _e('Search','cftp_admin'); ?></button>
 				</form>
 
@@ -188,7 +199,7 @@ $(document).ready(function() {
 			<div class="clear"></div>
 
 			<div class="form_actions_count">
-				<p class="form_count_total"><?php _e('Showing','cftp_admin'); ?>: <span><?php echo $count; ?> <?php _e('clients','cftp_admin'); ?></span></p>
+				<p class="form_count_total"><?php _e('Showing','cftp_admin'); ?>: <span><?php echo html_output($count); ?> <?php _e('clients','cftp_admin'); ?></span></p>
 				<ul id="table_view_modes">
 					<li><a href="#" id="view_reduced" class="active_view_button"><?php _e('View reduced table','cftp_admin'); ?></a></li><li>
 						<a href="#" id="view_full"><?php _e('View full table','cftp_admin'); ?></a></li>
@@ -240,37 +251,52 @@ $(document).ready(function() {
 				<tbody>
 					<?php
 						if ($count > 0) {
-							while($row = mysql_fetch_array($sql)) {
-								$found_groups = '';
-								$client_user = $row["user"];
-								$client_id = $row["id"];
-								$sql_groups = $database->query("SELECT DISTINCT group_id FROM tbl_members WHERE client_id='$client_id'");
-								$count_groups = mysql_num_rows($sql_groups);
+							$sql->setFetchMode(PDO::FETCH_ASSOC);
+							while ( $row = $sql->fetch() ) {
+								$found_groups	= '';
+								$client_user	= $row["user"];
+								$client_id		= $row["id"];
+
+								$sql_groups = $dbh->prepare("SELECT DISTINCT group_id FROM " . TABLE_MEMBERS . " WHERE client_id=:id");
+								$sql_groups->bindParam(':id', $client_id, PDO::PARAM_INT);
+								$sql_groups->execute();
+								$count_groups	= $sql_groups->rowCount();
+
 								if ($count_groups > 0) {
-									while($row_groups = mysql_fetch_array($sql_groups)) {
+									$sql_groups->setFetchMode(PDO::FETCH_ASSOC);
+									while ( $row_groups = $sql_groups->fetch() ) {
 										$groups_ids[] = $row_groups["group_id"];
 									}
 									$found_groups = implode(',',$groups_ids);
 								}
+
 								$date = date(TIMEFORMAT_USE,strtotime($row['timestamp']));
 					?>
 								<tr>
-									<td><input type="checkbox" name="selected_clients[]" value="<?php echo $row["id"]; ?>" /></td>
-									<td><?php echo html_entity_decode($row["name"]); ?></td>
-									<td><?php echo html_entity_decode($row["user"]); ?></td>
-									<td><?php echo html_entity_decode($row["email"]); ?></td>
+									<td><input type="checkbox" name="selected_clients[]" value="<?php echo html_output($row["id"]); ?>" /></td>
+									<td><?php echo html_output($row["name"]); ?></td>
+									<td><?php echo html_output($row["user"]); ?></td>
+									<td><?php echo html_output($row["email"]); ?></td>
 									<td>
 										<?php
 											$own_files = 0;
 											$groups_files = 0;
 
-											$fq = "SELECT DISTINCT id, file_id, client_id, group_id FROM tbl_files_relations WHERE client_id='$client_id'";
-											if (!empty($found_groups)) {
-												$fq .= " OR group_id IN ($found_groups)";
+											$files_query = "SELECT DISTINCT id, file_id, client_id, group_id FROM " . TABLE_FILES_RELATIONS . " WHERE client_id=:id";
+											if ( !empty( $found_groups ) ) {
+												$files_query .= " OR FIND_IN_SET(group_id, :group_id)";
 											}
-											$sql_files = $database->query($fq);
-											$count_files = mysql_num_rows($sql_files);
-											while($row_files = mysql_fetch_array($sql_files)) {
+											$sql_files = $dbh->prepare( $files_query );
+											$sql_files->bindParam(':id', $client_id, PDO::PARAM_INT);
+											if ( !empty( $found_groups ) ) {
+												$sql_files->bindParam(':group_id', $found_groups);
+											}
+
+											$sql_files->execute();
+											$count_files = $sql_files->rowCount();
+
+											$sql_files->setFetchMode(PDO::FETCH_ASSOC);
+											while ( $row_files = $sql_files->fetch() ) {
 												if (!is_null($row_files['client_id'])) {
 													$own_files++;
 												}
@@ -279,17 +305,17 @@ $(document).ready(function() {
 												}
 											}
 											
-											echo $own_files;
+											echo html_output($own_files);
 										?>
 									</td>
-									<td><?php echo $groups_files; ?>
+									<td><?php echo html_output($groups_files); ?>
 									</td>
 									<td>
 										<?php
 											$status_hidden	= __('Inactive','cftp_admin');
 											$status_visible	= __('Active','cftp_admin');
-											$label			= ($row['active'] === '0') ? $status_hidden : $status_visible;
-											$class			= ($row['active'] === '0') ? 'important' : 'success';
+											$label			= ($row['active'] === 0) ? $status_hidden : $status_visible;
+											$class			= ($row['active'] === 0) ? 'important' : 'success';
 										?>
 										<span class="label label-<?php echo $class; ?>">
 											<?php echo $label; ?>
@@ -300,9 +326,9 @@ $(document).ready(function() {
 									<td data-value="<?php echo strtotime($row['timestamp']); ?>">
 										<?php echo $date; ?>
 									</td>
-									<td><?php echo html_entity_decode($row["address"]); ?></td>
-									<td><?php echo html_entity_decode($row["phone"]); ?></td>
-									<td><?php echo html_entity_decode($row["contact"]); ?></td>
+									<td><?php echo html_output($row["address"]); ?></td>
+									<td><?php echo html_output($row["phone"]); ?></td>
+									<td><?php echo html_output($row["contact"]); ?></td>
 									<td>
 										<?php
 											if ($own_files + $groups_files > 0) {
@@ -325,13 +351,12 @@ $(document).ready(function() {
 										?>
 										<a href="<?php echo $files_link; ?>" class="btn btn-small <?php echo $files_button; ?>"><?php _e('Manage files','cftp_admin'); ?></a>
 										<a href="<?php echo $groups_link; ?>" class="btn btn-small <?php echo $groups_button; ?>"><?php _e('View groups','cftp_admin'); ?></a>
-										<a href="my_files/?client=<?php echo $row["user"]; ?>" class="btn btn-primary btn-small" target="_blank"><?php _e('View as client','cftp_admin'); ?></a>
-										<a href="clients-edit.php?id=<?php echo $row["id"]; ?>" class="btn btn-primary btn-small"><?php _e('Edit','cftp_admin'); ?></a>
+										<a href="my_files/?client=<?php echo html_output($row["user"]); ?>" class="btn btn-primary btn-small" target="_blank"><?php _e('View as client','cftp_admin'); ?></a>
+										<a href="clients-edit.php?id=<?php echo html_output($row["id"]); ?>" class="btn btn-primary btn-small"><?php _e('Edit','cftp_admin'); ?></a>
 									</td>
 								</tr>
 					<?php
 							}
-							$database->Close();
 						}
 					?>
 				</tbody>

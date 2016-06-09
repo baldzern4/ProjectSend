@@ -33,22 +33,24 @@ switch ($groups_form_type) {
 }
 ?>
 
-<form action="<?php echo $form_action; ?>" name="addgroup" method="post">
+<form action="<?php echo html_output($form_action); ?>" name="addgroup" method="post">
 	<ul class="form_fields">
 		<li>
 			<label for="add_group_form_name"><?php _e('Group name','cftp_admin'); ?></label>
-			<input type="text" name="add_group_form_name" id="add_group_form_name" class="required" value="<?php echo (isset($add_group_data_name)) ? stripslashes($add_group_data_name) : ''; ?>" />
+			<input type="text" name="add_group_form_name" id="add_group_form_name" class="required" value="<?php echo (isset($add_group_data_name)) ? html_output(stripslashes($add_group_data_name)) : ''; ?>" />
 		</li>
 		<li>
 			<label for="add_group_form_description" class="textarea_label"><?php _e('Description','cftp_admin'); ?></label>
-			<textarea name="add_group_form_description" id="add_group_form_description"><?php echo (isset($add_group_data_description)) ? stripslashes($add_group_data_description) : ''; ?></textarea>
+			<textarea name="add_group_form_description" id="add_group_form_description"><?php echo (isset($add_group_data_description)) ? html_output($add_group_data_description) : ''; ?></textarea>
 		</li>
 		<li class="assigns">
 			<label for="add_group_form_members"><?php _e('Members','cftp_admin'); ?></label>
 			<select multiple="multiple" id="members-select" class="form-control chosen-select" name="add_group_form_members[]" data-placeholder="<?php _e('Select one or more options. Type to search.', 'cftp_admin');?>">
 				<?php
-					$sql = $database->query("SELECT * FROM tbl_users WHERE level = '0' ORDER BY name ASC");
-					while($row = mysql_fetch_array($sql)) {
+					$sql = $dbh->prepare("SELECT * FROM " . TABLE_USERS . " WHERE level = '0' ORDER BY name ASC");
+					$sql->execute();
+					$sql->setFetchMode(PDO::FETCH_ASSOC);
+					while ( $row = $sql->fetch() ) {
 				?>
 						<option value="<?php echo $row["id"]; ?>"
 							<?php
@@ -58,7 +60,7 @@ switch ($groups_form_type) {
 									}
 								}
 							?>
-						><?php echo $row["name"]; ?></option>
+						><?php echo html_output($row["name"]); ?></option>
 				<?php
 					}
 				?>
@@ -71,7 +73,7 @@ switch ($groups_form_type) {
 	</ul>
 
 	<div class="inside_form_buttons">
-		<button type="submit" name="submit" class="btn btn-wide btn-primary"><?php echo $submit_value; ?></button>
+		<button type="submit" name="submit" class="btn btn-wide btn-primary"><?php echo html_output($submit_value); ?></button>
 	</div>
 </form>
 

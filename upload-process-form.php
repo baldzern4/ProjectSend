@@ -34,8 +34,6 @@ define('CAN_INCLUDE_FILES', true);
 	<h2><?php echo $page_title; ?></h2>
 
 <?php
-$database->MySQLDB();
-
 /**
  * Get the user level to determine if the uploader is a
  * system user or a client.
@@ -85,28 +83,32 @@ $empty_fields = 0;
 
 /** Fill the users array that will be used on the notifications process */
 $users = array();
-$cq = "SELECT id, name, level FROM tbl_users ORDER BY name ASC";
-$sql = $database->query($cq);
-while($row = mysql_fetch_array($sql)) {
+$statement = $dbh->prepare("SELECT id, name, level FROM " . TABLE_USERS . " ORDER BY name ASC");
+$statement->execute();
+$statement->setFetchMode(PDO::FETCH_ASSOC);
+while( $row = $statement->fetch() ) {
 	$users[$row["id"]] = $row["name"];
 	if ($row["level"] == '0') {
 		$clients[$row["id"]] = $row["name"];
 	}
 }
+
 /** Fill the groups array that will be used on the form */
 $groups = array();
-$cq = "SELECT id, name FROM tbl_groups ORDER BY name ASC";
-$sql = $database->query($cq);
-	while($row = mysql_fetch_array($sql)) {
+$statement = $dbh->prepare("SELECT id, name FROM " . TABLE_GROUPS . " ORDER BY name ASC");
+$statement->execute();
+$statement->setFetchMode(PDO::FETCH_ASSOC);
+while( $row = $statement->fetch() ) {
 	$groups[$row["id"]] = $row["name"];
 }
 
 /**
  * Make an array of file urls that are on the DB already.
  */
-$sql = $database->query("SELECT DISTINCT url FROM tbl_files");
-$urls_db_files = array();
-while($row = mysql_fetch_array($sql)) {
+$statement = $dbh->prepare("SELECT DISTINCT url FROM " . TABLE_FILES);
+$statement->execute();
+$statement->setFetchMode(PDO::FETCH_ASSOC);
+while( $row = $statement->fetch() ) {
 	$urls_db_files[] = $row["url"];
 }
 
@@ -283,9 +285,9 @@ while($row = mysql_fetch_array($sql)) {
 				foreach($upload_finish as $uploaded) {
 			?>
 					<tr>
-						<td><?php echo $uploaded['name']; ?></td>
-						<td><?php echo $uploaded['description']; ?></td>
-						<td><?php echo $uploaded['file']; ?></td>
+						<td><?php echo html_output($uploaded['name']); ?></td>
+						<td><?php echo html_output($uploaded['description']); ?></td>
+						<td><?php echo html_output($uploaded['file']); ?></td>
 						<?php
 							if ($current_level != 0) {
 						?>
@@ -300,7 +302,7 @@ while($row = mysql_fetch_array($sql)) {
 							}
 						?>
 						<td>
-							<a href="edit-file.php?file_id=<?php echo $uploaded['new_file_id']; ?>" class="btn-primary btn btn-small"><?php _e('Edit file','cftp_admin'); ?></a>
+							<a href="edit-file.php?file_id=<?php echo html_output($uploaded['new_file_id']); ?>" class="btn-primary btn btn-small"><?php _e('Edit file','cftp_admin'); ?></a>
 							<?php
 								/*
 								 * Show the "My files" button only to clients
@@ -343,7 +345,7 @@ while($row = mysql_fetch_array($sql)) {
 				foreach($upload_finish_orphans as $uploaded_orphan) {
 			?>
 					<tr>
-						<td><?php echo $uploaded_orphan; ?></td>
+						<td><?php echo html_output($uploaded_orphan); ?></td>
 						<td>
 							<?php
 								/*
@@ -352,7 +354,7 @@ while($row = mysql_fetch_array($sql)) {
 								 */
 								if ($current_level != 0) {
 							?>
-									<a href="edit-file.php?file_id=<?php echo $uploaded['new_file_id']; ?>" class="btn-primary btn btn-small"><?php _e('Edit file','cftp_admin'); ?></a>
+									<a href="edit-file.php?file_id=<?php echo html_output($uploaded['new_file_id']); ?>" class="btn-primary btn btn-small"><?php _e('Edit file','cftp_admin'); ?></a>
 							<?php
 								}
 								else {
@@ -445,8 +447,11 @@ while($row = mysql_fetch_array($sql)) {
 							$file_title = str_replace('_',' ',$filename_no_ext);
 							if ($this_upload->is_filetype_allowed($file)) {
 								if (in_array($file,$urls_db_files)) {
-									$file_sql = $database->query("SELECT filename, description FROM tbl_files WHERE url = '$file'");
-									while($row = mysql_fetch_array($file_sql)) {
+									$statement = $dbh->prepare("SELECT filename, description FROM " . TABLE_FILES . " WHERE url = :url");
+									$statement->bindParam(':url', $file);
+									$statement->execute();
+
+									while( $row = $statement->fetch() ) {
 										$file_title = $row["filename"];
 										$description = $row["description"];
 									}
@@ -466,15 +471,15 @@ while($row = mysql_fetch_array($sql)) {
 														<div class="span12">
 															<h3><?php _e('File information', 'cftp_admin');?></h3>
 															<p class="on_disc_name">
-																<?php echo $file; ?>
+																<?php echo html_output($file); ?>
 															</p>
-															<input type="hidden" name="file[<?php echo $i; ?>][original]" value="<?php echo $file_original; ?>" />
-															<input type="hidden" name="file[<?php echo $i; ?>][file]" value="<?php echo $file; ?>" />
+															<input type="hidden" name="file[<?php echo $i; ?>][original]" value="<?php echo html_output($file_original); ?>" />
+															<input type="hidden" name="file[<?php echo $i; ?>][file]" value="<?php echo html_output($file); ?>" />
 	
 															<label><?php _e('Title', 'cftp_admin');?></label>
-															<input type="text" name="file[<?php echo $i; ?>][name]" value="<?php echo $file_title; ?>" class="file_title" placeholder="<?php _e('Enter here the required file title.', 'cftp_admin');?>" />
+															<input type="text" name="file[<?php echo $i; ?>][name]" value="<?php echo html_output($file_title); ?>" class="file_title" placeholder="<?php _e('Enter here the required file title.', 'cftp_admin');?>" />
 															<label><?php _e('Description', 'cftp_admin');?></label>
-															<textarea name="file[<?php echo $i; ?>][description]" placeholder="<?php _e('Optionally, enter here a description for the file.', 'cftp_admin');?>"><?php echo (isset($description)) ? $description : ''; ?></textarea>
+															<textarea name="file[<?php echo $i; ?>][description]" placeholder="<?php _e('Optionally, enter here a description for the file.', 'cftp_admin');?>"><?php echo (isset($description)) ? html_output($description) : ''; ?></textarea>
 															
 														</div>
 													</div>
@@ -523,7 +528,7 @@ while($row = mysql_fetch_array($sql)) {
 																		 */
 																		foreach($clients as $client => $client_name) {
 																		?>
-																			<option value="<?php echo 'c'.$client; ?>"><?php echo $client_name; ?></option>
+																			<option value="<?php echo html_output('c'.$client); ?>"><?php echo html_output($client_name); ?></option>
 																		<?php
 																		}
 																	?>
@@ -536,7 +541,7 @@ while($row = mysql_fetch_array($sql)) {
 																		 */
 																		foreach($groups as $group => $group_name) {
 																		?>
-																			<option value="<?php echo 'g'.$group; ?>"><?php echo $group_name; ?></option>
+																			<option value="<?php echo html_output('g'.$group); ?>"><?php echo html_output($group_name); ?></option>
 																		<?php
 																		}
 																	?>
@@ -692,6 +697,5 @@ while($row = mysql_fetch_array($sql)) {
 </script>
 
 <?php
-	$database->Close();
 	include('footer.php');
 ?>

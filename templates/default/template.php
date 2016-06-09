@@ -29,7 +29,7 @@ $count = count($my_files);
 			<div class="form_actions_left">
 				<div class="form_actions_limit_results">
 					<form action="" name="files_search" method="post" class="form-inline">
-						<input type="text" name="search" id="search" value="<?php if(isset($_POST['search']) && !empty($_POST['search'])) { echo $_POST['search']; } ?>" class="txtfield form_actions_search_box" />
+						<input type="text" name="search" id="search" value="<?php if(isset($_POST['search']) && !empty($_POST['search'])) { echo html_output($_POST['search']); } ?>" class="txtfield form_actions_search_box" />
 						<button type="submit" id="btn_proceed_search" class="btn btn-small"><?php _e('Search','cftp_admin'); ?></button>
 					</form>
 				</div>
@@ -213,10 +213,11 @@ $count = count($my_files);
 													'<p class="lead text-center text-info"><?php _e('Please wait while your download is prepared.','cftp_admin'); ?></p>'+
 													'<p class="text-center text-info"><?php _e('This operation could take a few minutes, depending on the size of the files.','cftp_admin'); ?></p>'
 												);
-
 						$.get('<?php echo BASE_URI; ?>process.php', { do:"zip_download", client:"<?php echo CURRENT_USER_USERNAME; ?>", files:checkboxes },
 							function(data) {
-								$('.modal_content').append("<iframe src='<?php echo BASE_URI; ?>process-zip-download.php?file="+data+"'></iframe>");
+								var url = '<?php echo BASE_URI; ?>process-zip-download.php?file=' + data;
+								$('.modal_content').append("<iframe id='modal_zip'></iframe>");
+								$('#modal_zip').attr('src', url);
 								// Close the modal window
 								//remove_modal();
 							}
@@ -231,4 +232,3 @@ $count = count($my_files);
 
 </body>
 </html>
-<?php $database->Close(); ?>
